@@ -8,8 +8,9 @@ import me.mimic.ttrpg.localization.Localization;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
+import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 
 public class LocalizationConfig extends Config {
@@ -27,9 +28,19 @@ public class LocalizationConfig extends Config {
     @Override
     public void initDefault() {
         for(Language lang : Language.values()) {
-            TTRPG.getInstance().saveResource(lang.getPath(), true);
-            TTRPG.log(Level.INFO, "Created default config file (%s)", lang.name());
+            if(new File(TTRPG.getInstance().getDataFolder(), lang.getPath()).exists())
+                continue;
+            if(TTRPG.saveDefaultResource(lang.getPath()))
+                TTRPG.log(Level.INFO, "Created default config file (%s)", lang.name());
         }
+    }
+
+    // Returns the localization bundled in the plugin jar, or an empty configuration if there is none.
+    public static YamlConfiguration loadBundled(Language lang) {
+        InputStream stream = TTRPG.getInstance().getResource(lang.getPath());
+        if(stream == null)
+            return new YamlConfiguration();
+        return YamlConfiguration.loadConfiguration(new InputStreamReader(stream, StandardCharsets.UTF_8));
     }
 
     @Override
@@ -37,8 +48,7 @@ public class LocalizationConfig extends Config {
         super.load();
 
         // Add default to file for missing localization.
-        Reader reader = new InputStreamReader(TTRPG.getInstance().getResource(TTRPG.getInstance().language.getPath()));
-        YamlConfiguration dc = YamlConfiguration.loadConfiguration(reader);
+        YamlConfiguration dc = loadBundled(TTRPG.getInstance().language);
         for (Localization msg : Localization.values()) {
             if (this.contains(msg.name()) || !dc.contains(msg.name()))
                 continue;

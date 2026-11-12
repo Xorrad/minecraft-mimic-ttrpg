@@ -18,7 +18,7 @@
     <orderEntry type="jdk" jdkName="21" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="Citizens-2.0.41-1.21.11" level="project" />
-    <orderEntry type="library" name="spigot-api-1.21.11" level="project" />
+    <orderEntry type="library" name="spigot-api-26.3" level="project" />
     <orderEntry type="library" name="bungeecord-chat-1.21" level="project" />
     <orderEntry type="module" module-name="minecraft-mimic-lib" />
   </component>

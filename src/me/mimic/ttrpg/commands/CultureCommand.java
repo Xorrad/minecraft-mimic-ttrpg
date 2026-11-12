@@ -14,9 +14,11 @@ import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -64,8 +66,8 @@ public class CultureCommand extends CommandGroup {
                     if(args.length == 1) return getCulturesList();
                     if(args.length == 2) return Arrays.stream(NameType.values()).map(Enum::name).toList();
                     if(NameType.exists(args[1])) {
-                        NameType nameType = NameType.valueOf(args[1]);
-                        Culture culture = TTRPG.getInstance().cultures.get(args[0]);
+                        NameType nameType = NameType.valueOf(args[1].toUpperCase());
+                        Culture culture = TTRPG.getInstance().cultures.get(args[0].toUpperCase());
                         if (args.length == 3 && culture != null && culture.getNameManager() instanceof IListNamesManager) {
                             return ((ListNamesManager) culture.getNameManager()).getNames(nameType);
                         }
@@ -316,15 +318,20 @@ public class CultureCommand extends CommandGroup {
         Culture culture = TTRPG.getInstance().cultures.get(cultureId);
         NameType type = NameType.valueOf(nameTypeStr);
 
-        for(int i = 0; i < n; i++)
-        {
-            String generatedName = culture.getNameManager().get(type);
+        // Some name managers query a web service, so names are generated off the main thread.
+        Bukkit.getScheduler().runTaskAsynchronously(TTRPG.getInstance(), () -> {
+            List<String> lines = new ArrayList<>();
+            for(int i = 0; i < n; i++)
+            {
+                String generatedName = culture.getNameManager().get(type);
 
-            if(type != NameType.FAMILY)
-                generatedName += " " + culture.getNameManager().get(NameType.FAMILY);
+                if(type != NameType.FAMILY)
+                    generatedName += " " + culture.getNameManager().get(NameType.FAMILY);
 
-            sender.sendMessage("  §e" + (i+1) + ". §7\"" + generatedName + "\"");
-        }
+                lines.add("  §e" + (i+1) + ". §7\"" + generatedName + "\"");
+            }
+            Bukkit.getScheduler().runTask(TTRPG.getInstance(), () -> lines.forEach(sender::sendMessage));
+        });
     }
 
     public static void changeRinkworksTemplate(CommandSender sender, Object[] objects) {

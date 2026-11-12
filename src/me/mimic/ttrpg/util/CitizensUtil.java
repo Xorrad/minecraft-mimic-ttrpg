@@ -6,9 +6,21 @@ import net.citizensnpcs.Citizens;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.trait.AttributeTrait;
+import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.Bisected;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.Slab;
+import org.bukkit.block.data.type.Stairs;
 import org.bukkit.entity.EntityType;
+import org.bukkit.util.BoundingBox;
+import org.bukkit.util.Vector;
+
+import java.util.Collection;
 
 public class CitizensUtil {
     public static NPC spawnNPC(String name, Location location) {
@@ -20,6 +32,109 @@ public class CitizensUtil {
         npc.spawn(location);
         ((Citizens) CitizensAPI.getPlugin()).storeNPCs();
         return npc;
+    }
+
+    // Finds where a character at this location can stand: the feet are moved up out of solid blocks
+    // (or down onto the ground when floating) and placed on top of the block below,
+    // so slabs and stairs are taken into account.
+    public static Location standingLocation(Location location) {
+        Block feet = location.getBlock();
+        for(int i = 0; i < 3 && !feet.isPassable(); i++)
+            feet = feet.getRelative(BlockFace.UP);
+        for(int i = 0; i < 2 && feet.isPassable() && feet.getRelative(BlockFace.DOWN).isPassable(); i++)
+            feet = feet.getRelative(BlockFace.DOWN);
+
+        Block ground = feet.getRelative(BlockFace.DOWN);
+        Location standing = location.clone();
+        standing.setY(ground.isPassable() ? feet.getY() : ground.getBoundingBox().getMaxY());
+        return standing;
+    }
+
+    // Where a character standing at this location sits down: on the step of the stairs or the bottom slab
+    // under its feet, or else on top of the ground it stands on.
+    public static Location seatLocation(Location feet) {
+        Location seat = feet.clone();
+        Block block = feet.getWorld().getBlockAt(feet.getBlockX(), (int) Math.ceil(feet.getY()) - 1, feet.getBlockZ());
+        BlockData data = block.getBlockData();
+
+        boolean lowerStairs = (data instanceof Stairs stairs) && stairs.getHalf() == Bisected.Half.BOTTOM;
+        boolean bottomSlab = (data instanceof Slab slab) && slab.getType() == Slab.Type.BOTTOM;
+        if(lowerStairs || bottomSlab)
+            seat.setY(block.getY() + 0.5);
+        else if(!block.isPassable())
+            seat.setY(block.getBoundingBox().getMaxY());
+        // Over an empty block (e.g. while falling), sit where the feet are.
+        return seat;
+    }
+
+    // Whether a character of this size fits at this location: its whole hitbox is clear of blocks and liquids,
+    // and something solid is right under it. Checking the hitbox, not just the block at the feet,
+    // keeps a character next to a wall from ending up partly inside it.
+    public static boolean canStandAt(Location location, double width, double height) {
+        double half = width / 2;
+        BoundingBox body = new BoundingBox(
+                location.getX() - half, location.getY() + 0.001, location.getZ() - half,
+                location.getX() + half, location.getY() + height, location.getZ() + half);
+        BoundingBox feet = new BoundingBox(
+                body.getMinX(), location.getY() - 0.05, body.getMinZ(),
+                body.getMaxX(), location.getY(), body.getMaxZ());
+
+        return !touchesBlocks(location.getWorld(), body, true) && touchesBlocks(location.getWorld(), feet, false);
+    }
+
+    // Whether the box overlaps the collision shape of any block (or, if asked, any liquid).
+    private static boolean touchesBlocks(World world, BoundingBox box, boolean liquidsCount) {
+        for(int x = (int) Math.floor(box.getMinX()); x <= (int) Math.floor(box.getMaxX()); x++) {
+            for(int y = (int) Math.floor(box.getMinY()); y <= (int) Math.floor(box.getMaxY()); y++) {
+                for(int z = (int) Math.floor(box.getMinZ()); z <= (int) Math.floor(box.getMaxZ()); z++) {
+                    Block block = world.getBlockAt(x, y, z);
+                    if(liquidsCount && block.isLiquid())
+                        return true;
+                    // Collision shapes are relative to the block's corner.
+                    if(block.getCollisionShape().overlaps(box.clone().shift(-x, -y, -z)))
+                        return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // A random spot within the radius of the center where a character of this size can stand, in view of the center
+    // (so it isn't sent through a wall) and at least a block away from the spots already taken.
+    // Falls back to the center when no such spot is found.
+    public static Location scatterLocation(Location center, double radius, Collection<Location> taken, double width, double height) {
+        Location fallback = null;
+        Location eye = center.clone().add(0, 1, 0);
+
+        for(int attempt = 0; attempt < 30; attempt++) {
+            double angle = MathUtil.random.nextDouble() * 2 * Math.PI;
+            double distance = radius * Math.sqrt(MathUtil.random.nextDouble());
+            Location candidate = center.clone().add(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
+            Location standing = standingLocation(candidate);
+
+            if(Math.abs(standing.getY() - center.getY()) > 3 || !canStandAt(standing, width, height))
+                continue;
+
+            Vector toSpot = standing.clone().add(0, 1, 0).toVector().subtract(eye.toVector());
+            if(toSpot.lengthSquared() > 0.01
+                    && center.getWorld().rayTraceBlocks(eye, toSpot.clone().normalize(), toSpot.length(), FluidCollisionMode.NEVER, true) != null)
+                continue;
+
+            faceTowards(standing, center);
+            if(taken.stream().noneMatch(spot -> spot.getWorld() == standing.getWorld() && spot.distanceSquared(standing) < 1.0))
+                return standing;
+            if(fallback == null)
+                fallback = standing;
+        }
+        return (fallback != null) ? fallback : center.clone();
+    }
+
+    private static void faceTowards(Location location, Location target) {
+        Vector direction = target.toVector().subtract(location.toVector()).setY(0);
+        if(direction.lengthSquared() < 0.0001)
+            return;
+        location.setDirection(direction);
+        location.setPitch(0);
     }
 
     public static NPC spawnNPC(String name, Location location, Culture culture) {

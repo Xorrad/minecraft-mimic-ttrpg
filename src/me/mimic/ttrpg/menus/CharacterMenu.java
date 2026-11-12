@@ -4,12 +4,14 @@ import me.mimic.ttrpg.core.traits.*;
 import me.mimic.lib.ui.Item;
 import me.mimic.lib.ui.ItemClickResult;
 import me.mimic.lib.ui.Menu;
+import me.mimic.lib.ui.TextMenu;
 import me.mimic.ttrpg.TTRPG;
 import me.mimic.ttrpg.core.CharacterStats;
 import me.mimic.ttrpg.core.Culture;
 import me.mimic.ttrpg.core.Faith;
 import me.mimic.ttrpg.core.Personality;
 import me.mimic.ttrpg.localization.Localization;
+import me.mimic.ttrpg.util.CitizensUtil;
 import me.mimic.ttrpg.util.SkinUtil;
 import net.citizensnpcs.Citizens;
 import net.citizensnpcs.api.CitizensAPI;
@@ -29,10 +31,16 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 public class CharacterMenu extends Menu {
+    private static final Map<UUID, Listener> PENDING_FAMILY_SELECTIONS = new HashMap<>();
+
     public NPC npc;
 
 //    +----------+-----------+--------------+--------------+----------+---------+---------+---------+---------+
@@ -89,8 +97,13 @@ public class CharacterMenu extends Menu {
         this.set(row*9 + 0, new Item()
             .material(Material.PLAYER_HEAD)
             .name(Localization.NAME.format())
-            .lore("§f" + npc.getName())
+            .lore("§f" + npc.getName(), "", Localization.RENAME_DESC.format())
             .head(SkinUtil.getNPCProfile(npc))
+            .leftClick((p, m) -> {
+                // Open the anvil on the next tick, once the click on this menu is handled.
+                Bukkit.getScheduler().runTask(TTRPG.getInstance(), () -> openRename(p));
+                return ItemClickResult.NO_RESULT;
+            })
         );
 
         this.set(row*9 + 1, new Item()
@@ -100,7 +113,7 @@ public class CharacterMenu extends Menu {
             .hideAttributes()
             .leftClick((p, m) -> {
                 openChangeCulture(p);
-                return ItemClickResult.OPEN_INVENTORY;
+                return ItemClickResult.NO_RESULT;
             })
             .rightClick((p, m) -> {
                 npc.getOrAddTrait(CultureTrait.class).setCulture(null);
@@ -116,7 +129,7 @@ public class CharacterMenu extends Menu {
             .lore(hasFaith ? "§f" + faith.getName() : Localization.NONE.format())
             .leftClick((p, m) -> {
                 openChangeFaith(p);
-                return ItemClickResult.OPEN_INVENTORY;
+                return ItemClickResult.NO_RESULT;
             })
             .rightClick((p, m) -> {
                 npc.getOrAddTrait(FaithTrait.class).setFaith(null);
@@ -150,11 +163,13 @@ public class CharacterMenu extends Menu {
                 .leftClick((p, m) -> {
                     int val = Math.max(0, trait.getStat(stat) - 1);
                     trait.setStat(stat, val);
+                    this.saveNPC();
                     this.updateStats();
                     return ItemClickResult.NO_RESULT;
                 })
                 .rightClick((p, m) -> {
                     trait.setStat(stat, trait.getStat(stat) + 1);
+                    this.saveNPC();
                     this.updateStats();
                     return ItemClickResult.NO_RESULT;
                 })
@@ -279,7 +294,7 @@ public class CharacterMenu extends Menu {
                     Inventory trait = (Inventory) npc.getTraitNullable(Inventory.class);
                     this.setClosed(true);
                     trait.openInventory(p);
-                    return ItemClickResult.OPEN_INVENTORY;
+                    return ItemClickResult.NO_RESULT;
                 })
         );
 
@@ -294,7 +309,7 @@ public class CharacterMenu extends Menu {
                     }
                     this.setClosed(true);
                     Editor.enterOrLeave(p, new EquipmentEditor(p, npc));
-                    return ItemClickResult.OPEN_INVENTORY;
+                    return ItemClickResult.NO_RESULT;
                 })
         );
 
@@ -310,18 +325,20 @@ public class CharacterMenu extends Menu {
                     SitTrait trait = (SitTrait)npc.getOrAddTrait(SitTrait.class);
                     boolean toSit = !trait.isSitting();
 
+                    // Keep the trait and only toggle it, like Citizens' /npc sit:
+                    // a trait added back after being removed does not take effect.
                     if (!toSit){
+                        // The seat is lowered into the block below, so once the character is off it,
+                        // move it back up on top of that block instead of leaving it in the ground.
+                        Location seat = npc.getStoredLocation().clone();
                         trait.setSitting((Location)null);
-                        npc.removeTrait(SitTrait.class);
+                        Bukkit.getScheduler().runTask(TTRPG.getInstance(), () -> {
+                            if (npc.isSpawned() && !trait.isSitting())
+                                npc.teleport(CitizensUtil.standingLocation(seat), PlayerTeleportEvent.TeleportCause.PLUGIN);
+                        });
                     }
                     else {
-                        Location at = npc.getStoredLocation();
-                        // Block block = at.getWorld().getHighestBlockAt(at);
-                        at.setY(Math.ceil(at.getY()) - 1);
-                        Block block = at.getBlock();
-                        if(block.getType().name().contains("STAIRS") || block.getType().name().contains("SLAB"))
-                            at.setY(block.getY() + 0.5);
-                        trait.setSitting(at);
+                        trait.setSitting(CitizensUtil.seatLocation(npc.getStoredLocation()));
                     }
                     this.saveNPC();
                     return ItemClickResult.NO_RESULT;
@@ -338,11 +355,10 @@ public class CharacterMenu extends Menu {
                         return ItemClickResult.NO_RESULT;
                     }
 
+                    // Keep the trait and only toggle it, like Citizens' /npc follow.
                     FollowTrait trait = (FollowTrait) npc.getOrAddTrait(FollowTrait.class);
                     boolean following = !trait.isEnabled();
                     trait.follow(following ? p : null);
-
-                    if(!following) npc.removeTrait(FollowTrait.class);
 
                     this.saveNPC();
                     return ItemClickResult.NO_RESULT;
@@ -370,6 +386,30 @@ public class CharacterMenu extends Menu {
         for(int i = 0; i < 9; i++) {
             this.set(row*9 + i, new Item().material(Material.WHITE_STAINED_GLASS_PANE));
         }
+    }
+
+    public void openRename(Player player) {
+        if(!player.isOnline())
+            return;
+
+        new TextMenu()
+                .title(Localization.MENU_TITLE_RENAME.format(npc.getName()))
+                .text(npc.getName())
+                .item(new Item(Material.NAME_TAG))
+                .validate(text -> !text.isBlank(), Localization.RENAME_INVALID.format())
+                .onComplete((p, text) -> {
+                    String oldName = npc.getName();
+                    String newName = text.trim();
+                    if(!newName.equals(oldName)) {
+                        npc.setName(newName);
+                        this.saveNPC();
+                        p.sendMessage(Localization.RENAMED.format(oldName, newName));
+                    }
+                    this.title(Localization.MENU_TITLE_CHARACTER.format(npc.getName()));
+                    this.reopen(p);
+                })
+                .onCancel(this::reopen)
+                .open(player);
     }
 
     public void openChangeCulture(Player player) {
@@ -452,27 +492,36 @@ public class CharacterMenu extends Menu {
     }
 
     public void openChangeFamily(Player player, Consumer<NPC> applyFunction) {
-        player.closeInventory();
+        // Only the latest selection of a player waits for a target.
+        cancelFamilySelection(player);
         player.sendMessage(Localization.FAMILY_SELECT.format());
 
-        Bukkit.getServer().getPluginManager().registerEvents(new Listener() {
+        Listener listener = new Listener() {
             @EventHandler
             public void onClick(EntityDamageByEntityEvent event) {
-                if(!CitizensAPI.getNPCRegistry().isNPC(event.getEntity()))
-                    return;
                 if(!event.getDamager().equals(player))
                     return;
-                Player player = (Player) event.getDamager();
                 NPC target = CitizensAPI.getNPCRegistry().getNPC(event.getEntity());
-
                 if (target == null)
                     return;
 
                 event.setCancelled(true);
-                HandlerList.unregisterAll(this);
+                if(target.equals(npc)) {
+                    player.sendMessage("§cA character cannot be its own relative.");
+                    return;
+                }
+                cancelFamilySelection(player);
                 applyFunction.accept(target);
             }
-        }, TTRPG.getInstance());
+        };
+        PENDING_FAMILY_SELECTIONS.put(player.getUniqueId(), listener);
+        Bukkit.getServer().getPluginManager().registerEvents(listener, TTRPG.getInstance());
+    }
+
+    public static void cancelFamilySelection(Player player) {
+        Listener previous = PENDING_FAMILY_SELECTIONS.remove(player.getUniqueId());
+        if(previous != null)
+            HandlerList.unregisterAll(previous);
     }
 
     private Item makeFamilyHeadItem(String title, NPC relative) {

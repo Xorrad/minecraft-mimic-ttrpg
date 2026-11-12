@@ -66,7 +66,7 @@ public class FamilyTrait extends Trait {
 
     public void removeChild(NPC child) {
         if(child != null && !this.children.isEmpty())
-            this.children.remove(child.getId());
+            this.children.remove(Integer.valueOf(child.getId()));
     }
 
     @Override

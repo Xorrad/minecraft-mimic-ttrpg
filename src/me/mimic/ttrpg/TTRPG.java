@@ -7,6 +7,7 @@ import me.mimic.lib.LibMain;
 import me.mimic.lib.configs.Config;
 import me.mimic.ttrpg.core.Culture;
 import me.mimic.ttrpg.core.Faith;
+import me.mimic.ttrpg.core.NpcSelection;
 import me.mimic.ttrpg.events.NpcsEvents;
 import me.mimic.ttrpg.events.PlayerEvents;
 import me.mimic.ttrpg.localization.Language;
@@ -36,12 +37,12 @@ public class TTRPG extends JavaPlugin  {
     @Override
     public void onLoad() {
         instance = this;
-        LibMain.instance = this;
         this.language = Language.en_US;
     }
 
     @Override
     public void onEnable() {
+        LibMain.init(this);
         this.initVariables();
         this.registerCommands();
         this.registerEvents();
@@ -51,6 +52,8 @@ public class TTRPG extends JavaPlugin  {
 
     @Override
     public void onDisable() {
+        // Remove the glow of selected NPCs, which would otherwise stay after a reload.
+        NpcSelection.clearAll();
 
     }
 
@@ -107,6 +110,15 @@ public class TTRPG extends JavaPlugin  {
         this.language = language;
         if(this.configs.containsKey("localization"))
             ((LocalizationConfig) this.configs.get("localization")).setActiveLanguage(this.language);
+    }
+
+    // Copies a file bundled in the plugin jar to the data folder.
+    // Returns false when the jar does not contain it.
+    public static boolean saveDefaultResource(String path) {
+        if(instance.getResource(path) == null)
+            return false;
+        instance.saveResource(path, false);
+        return true;
     }
 
     public static void log(String format, Object... args) {

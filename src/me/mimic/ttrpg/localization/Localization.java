@@ -1,6 +1,8 @@
 package me.mimic.ttrpg.localization;
 
 import me.mimic.lib.configs.Config;
+import me.mimic.ttrpg.configs.LocalizationConfig;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.ChatColor;
 
 public enum Localization {
@@ -8,6 +10,11 @@ public enum Localization {
     MENU_TITLE_CHANGE_CULTURE,
     MENU_TITLE_CHANGE_FAITH,
     MENU_TITLE_CHANGE_PERSONALITY,
+    MENU_TITLE_RENAME,
+
+    RENAME_DESC,
+    RENAME_INVALID,
+    RENAMED,
 
     CULTURE_SELECT,
     FAITH_SELECT,
@@ -95,6 +102,8 @@ public enum Localization {
     private String format;
 
     public String format(Object... args) {
+        if(this.format == null)
+            return this.name();
         return String.format(ChatColor.translateAlternateColorCodes('&', this.format), args);
     }
 
@@ -114,8 +123,10 @@ public enum Localization {
 
     public static void setActiveConfig(Config activeConfig) {
         Localization.activeConfig = activeConfig;
+        // Messages missing from the active language fall back to English.
+        YamlConfiguration fallback = LocalizationConfig.loadBundled(Language.en_US);
         for(Localization msg : values()) {
-            msg.setFormat(activeConfig.getString(msg.name()));
+            msg.setFormat(activeConfig.getString(msg.name(), fallback.getString(msg.name())));
         }
     }
 

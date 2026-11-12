@@ -15,8 +15,10 @@ public class CulturesConfig extends Config {
 
     @Override
     public void initDefault() {
-        TTRPG.getInstance().saveResource(this.getName(), true);
-        TTRPG.log(Level.INFO, "Created default config file (%s)", this.getName());
+        if(this.file.exists())
+            return;
+        if(TTRPG.saveDefaultResource(this.getName()))
+            TTRPG.log(Level.INFO, "Created default config file (%s)", this.getName());
     }
 
     @Override

@@ -6,10 +6,9 @@ import me.mimic.ttrpg.TTRPG;
 import me.mimic.ttrpg.core.Culture;
 import me.mimic.ttrpg.core.names.NameType;
 import me.mimic.ttrpg.util.CitizensUtil;
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,14 +48,16 @@ public class CharCommand extends CommandGroup {
         Culture culture = TTRPG.getInstance().cultures.get(cultureId);
         NameType nameType = NameType.valueOf(nameTypeStr.toUpperCase());
 
-        new BukkitRunnable() {
-            public void run() {
-                String name = culture.getNameManager().get(nameType) + " " + culture.getNameManager().get(NameType.FAMILY);
+        // Some name managers query a web service, so the name is generated off the main thread
+        // and the NPC is spawned back on it.
+        Bukkit.getScheduler().runTaskAsynchronously(TTRPG.getInstance(), () -> {
+            String name = culture.getNameManager().get(nameType) + " " + culture.getNameManager().get(NameType.FAMILY);
+            Bukkit.getScheduler().runTask(TTRPG.getInstance(), () -> {
+                if(!player.isOnline())
+                    return;
                 CitizensUtil.spawnNPC(name, player.getLocation(), culture);
                 player.sendMessage("§eA NPC named §7\"" + name + "\" §e(from culture §7" + culture.getName() + "§e) been created at your location.");
-                this.cancel();
-            }
-        }.runTask((Plugin) TTRPG.getInstance());
-
+            });
+        });
     }
 }

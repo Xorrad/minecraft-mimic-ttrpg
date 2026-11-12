@@ -9,6 +9,7 @@ import me.mimic.ttrpg.generators.RinkworksGenerator;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.logging.Level;
 
 public class RinkworksNamesManager extends NamesManager {
     private HashMap<NameType, String> templates;
@@ -36,7 +37,12 @@ public class RinkworksNamesManager extends NamesManager {
 
     @Override
     public String get(NameType nameType) {
-        return this.generators.get(nameType).toString();
+        RinkworksGenerator generator = this.generators.get(nameType);
+        if(generator == null) {
+            TTRPG.log(Level.INFO, "Warning! A rinkworks name generator has no template for %s.", nameType.name().toLowerCase());
+            return "";
+        }
+        return generator.toString();
     }
 
     @Override

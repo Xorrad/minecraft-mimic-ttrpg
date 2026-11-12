@@ -15,7 +15,8 @@ public class PluginConfig extends Config {
     @Override
     public void initDefault() {
         set("language", TTRPG.getInstance().language.name());
-        TTRPG.log(Level.INFO, "Created default config file (%s)", this.getName());
+        if(!this.file.exists())
+            TTRPG.log(Level.INFO, "Created default config file (%s)", this.getName());
     }
 
     @Override
