@@ -4,7 +4,11 @@ import me.mimic.lib.commands.CommandGroup;
 import me.mimic.lib.commands.CommandParameter;
 import me.mimic.ttrpg.TTRPG;
 import me.mimic.ttrpg.core.Culture;
+import me.mimic.ttrpg.core.Gender;
 import me.mimic.ttrpg.core.names.NameType;
+import me.mimic.ttrpg.core.skins.SkinLibrary;
+import net.citizensnpcs.api.npc.NPC;
+import me.mimic.ttrpg.localization.Localization;
 import me.mimic.ttrpg.util.CitizensUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -24,7 +28,7 @@ public class CharCommand extends CommandGroup {
                 .param(new CommandParameter("gender", CommandParameter.Type.STRING, "MALE"))
                 .complete((sender, args) -> {
                     if(args.length == 1) return TTRPG.getInstance().cultures.values().stream().map(Culture::getId).filter(s -> s.startsWith(args[0].toUpperCase())).toList();
-                    if(args.length == 2) return Arrays.stream(NameType.values()).map(NameType::name).filter(s -> s.startsWith(args[1].toUpperCase())).toList();
+                    if(args.length == 2) return Arrays.stream(Gender.values()).map(Gender::name).filter(s -> s.startsWith(args[1].toUpperCase())).toList();
                     return Collections.emptyList();
                 })
                 .execute(CharCommand::newCharacterWithCulture);
@@ -33,20 +37,21 @@ public class CharCommand extends CommandGroup {
     public static void newCharacterWithCulture(CommandSender sender, Object[] params) {
         Player player = (Player) sender;
         String cultureId = ((String) params[0]).toUpperCase();
-        String nameTypeStr = (String) params[1];
+        String genderStr = (String) params[1];
 
         if(!TTRPG.getInstance().cultures.containsKey(cultureId)) {
-            sender.sendMessage("§eThe culture §7" + cultureId + "§e does not exist.");
+            sender.sendMessage(Localization.CMD_CULTURE_DOESNT_EXIST.format(cultureId));
             return;
         }
 
-        if(!NameType.exists(nameTypeStr)) {
-            sender.sendMessage("§eThe nameType §7" + nameTypeStr + "§e is not valid.");
+        Gender gender = Gender.fromString(genderStr);
+        if(gender == null) {
+            sender.sendMessage(Localization.CMD_CHAR_GENDER_INVALID.format(genderStr));
             return;
         }
 
         Culture culture = TTRPG.getInstance().cultures.get(cultureId);
-        NameType nameType = NameType.valueOf(nameTypeStr.toUpperCase());
+        NameType nameType = gender.getNameType();
 
         // Some name managers query a web service, so the name is generated off the main thread
         // and the NPC is spawned back on it.
@@ -55,8 +60,10 @@ public class CharCommand extends CommandGroup {
             Bukkit.getScheduler().runTask(TTRPG.getInstance(), () -> {
                 if(!player.isOnline())
                     return;
-                CitizensUtil.spawnNPC(name, player.getLocation(), culture);
-                player.sendMessage("§eA NPC named §7\"" + name + "\" §e(from culture §7" + culture.getName() + "§e) been created at your location.");
+                NPC npc = CitizensUtil.spawnNPC(name, player.getLocation(), culture, gender);
+                player.sendMessage(Localization.CMD_CHAR_CREATED.format(name, culture.getName()));
+                // Dress the new NPC for its culture and gender. Quiet if the server has no skins set up.
+                SkinLibrary.pickSkinFor(npc, player, true, () -> {});
             });
         });
     }

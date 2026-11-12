@@ -6,6 +6,7 @@ import me.mimic.ttrpg.core.Culture;
 import me.mimic.ttrpg.core.names.NameType;
 import me.mimic.ttrpg.core.names.NamesManager;
 import me.mimic.ttrpg.generators.RinkworksGenerator;
+import me.mimic.ttrpg.localization.Localization;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,11 +50,11 @@ public class RinkworksNamesManager extends NamesManager {
     public ArrayList<String> getResume() {
         ArrayList<String> lines = new ArrayList<>();
 
-        lines.add("§eType: §7" + this.type.name().toLowerCase());
+        lines.add(Localization.NAMES_INFO_TYPE.format(this.type.name().toLowerCase()));
 
         for(NameType type : NameType.values())
         {
-            lines.add("§e" + type.name() + ": \"§7" + this.templates.get(type) + "§e\"");
+            lines.add(Localization.NAMES_INFO_TEMPLATE.format(type.name(), this.templates.get(type)));
         }
 
         return lines;

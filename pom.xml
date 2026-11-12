@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>me.mimic</groupId>
+    <artifactId>mimic-ttrpg</artifactId>
+    <!-- Keep in sync with the version in src/plugin.yml. -->
+    <version>1.2.1</version>
+    <packaging>jar</packaging>
+
+    <name>MimicTTRPG</name>
+
+    <properties>
+        <java.version>21</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- mimic-lib is compiled into the plugin jar from its sources, as the IntelliJ artifact does. -->
+        <mimiclib.dir>${project.basedir}/../minecraft-mimic-lib</mimiclib.dir>
+        <apis.dir>${project.basedir}/../__apis__</apis.dir>
+    </properties>
+
+    <build>
+        <defaultGoal>clean package</defaultGoal>
+        <!-- Produces target/MimicTTRPG-1.2.1.jar -->
+        <finalName>${project.name}-${project.version}</finalName>
+
+        <!-- The project keeps its code and resources directly in src/, not in src/main/java and src/main/resources. -->
+        <sourceDirectory>src</sourceDirectory>
+        <resources>
+            <resource>
+                <directory>src</directory>
+                <includes>
+                    <include>plugin.yml</include>
+                    <include>lang/**</include>
+                    <include>skins/**</include>
+                </includes>
+            </resource>
+        </resources>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>${java.version}</release>
+                </configuration>
+            </plugin>
+            <plugin>
+                <!-- Adds mimic-lib's sources, so its classes end up in the plugin jar. -->
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <id>add-mimic-lib</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${mimiclib.dir}/src</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <repositories>
+        <repository>
+            <id>spigotmc-repo</id>
+            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <!-- The Spigot API, which also brings the BungeeCord chat API used for clickable messages.
+             Not paper-api: mimic-lib's Item extends ItemStack, and Paper's ItemStack has its own
+             lore(...) and editMeta(...) methods that clash with Item's. The plugin still runs on Paper. -->
+        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot-api</artifactId>
+            <version>26.3-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Citizens, from the same jar IntelliJ uses. The plugin uses Citizens' internal classes
+             (net.citizensnpcs.Citizens, its traits and editors), which the API-only artifact doesn't have.
+             To use Citizens' Maven repository instead (https://maven.citizensnpcs.co/repo),
+             replace this with net.citizensnpcs:citizens-main at the matching version. -->
+        <dependency>
+            <groupId>net.citizensnpcs</groupId>
+            <artifactId>citizens</artifactId>
+            <version>2.0.41-1.21.11</version>
+            <scope>system</scope>
+            <systemPath>${apis.dir}/Citizens-2.0.41-1.21.11.jar</systemPath>
+        </dependency>
+
+        <!-- Optional on the server (softdepend): with it, selected NPCs only glow for whoever selected them. -->
+        <dependency>
+            <groupId>com.comphenix.protocol</groupId>
+            <artifactId>ProtocolLib</artifactId>
+            <version>5.5.0-SNAPSHOT</version>
+            <scope>system</scope>
+            <systemPath>${apis.dir}/ProtocolLib-26.3.jar</systemPath>
+        </dependency>
+    </dependencies>
+</project>

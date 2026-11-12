@@ -2,6 +2,7 @@ package me.mimic.ttrpg.events;
 
 import me.mimic.ttrpg.TTRPG;
 import me.mimic.ttrpg.core.NpcSelection;
+import me.mimic.ttrpg.localization.Localization;
 import me.mimic.ttrpg.util.SelectionTools;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.event.NPCRemoveEvent;
@@ -60,9 +61,9 @@ public class NpcsEvents implements Listener {
             return;
 
         if(NpcSelection.deselect(player, npc))
-            player.sendMessage("§a(§c-§a) §e" + npc.getName() + " §a(ID " + npc.getId() + ").");
+            player.sendMessage(Localization.NPC_DESELECTED.format(npc.getName(), npc.getId()));
         else if(NpcSelection.select(player, npc))
-            player.sendMessage("§a(+) §e" + npc.getName() + " §a(ID " + npc.getId() + ").");
+            player.sendMessage(Localization.NPC_SELECTED.format(npc.getName(), npc.getId()));
 
         event.setCancelled(true);
     }
@@ -88,7 +89,7 @@ public class NpcsEvents implements Listener {
         Location center = this.aimedLocation(player);
         if(center == null) {
             if(this.firstUseThisTick(player))
-                player.sendMessage("§cAim at a block or an NPC within " + SelectionTools.BRUSH_RANGE + " blocks.");
+                player.sendMessage(Localization.BRUSH_NO_TARGET.format(SelectionTools.BRUSH_RANGE));
             return;
         }
         this.useBrush(player, center, radius, select);
@@ -126,9 +127,9 @@ public class NpcsEvents implements Listener {
         this.showRadius(player, center, radius, select);
 
         if(select)
-            player.sendMessage("§a(+) §e" + changed + "§a NPCs selected within §e" + radius + "§a blocks §7(" + total + " selected)§a.");
+            player.sendMessage(Localization.BRUSH_SELECTED.format(changed, radius, total));
         else
-            player.sendMessage("§a(§c-§a) §e" + changed + "§a NPCs deselected within §e" + radius + "§a blocks §7(" + total + " selected)§a.");
+            player.sendMessage(Localization.BRUSH_DESELECTED.format(changed, radius, total));
     }
 
     private boolean firstUseThisTick(Player player) {

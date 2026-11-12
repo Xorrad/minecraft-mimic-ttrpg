@@ -8,6 +8,8 @@ import me.mimic.lib.configs.Config;
 import me.mimic.ttrpg.core.Culture;
 import me.mimic.ttrpg.core.Faith;
 import me.mimic.ttrpg.core.NpcSelection;
+import me.mimic.ttrpg.core.skins.SkinLibrary;
+import me.mimic.ttrpg.core.highlight.PacketHighlighter;
 import me.mimic.ttrpg.events.NpcsEvents;
 import me.mimic.ttrpg.events.PlayerEvents;
 import me.mimic.ttrpg.localization.Localization;
@@ -40,6 +42,7 @@ public class TTRPG extends JavaPlugin  {
     public void onEnable() {
         LibMain.init(this);
         this.initVariables();
+        this.initHighlighter();
         this.registerCommands();
         this.registerEvents();
         this.initConfigurations();
@@ -49,7 +52,8 @@ public class TTRPG extends JavaPlugin  {
     @Override
     public void onDisable() {
         // Remove the glow of selected NPCs, which would otherwise stay after a reload.
-        NpcSelection.clearAll();
+        if(this.selectedNPCS != null)
+            NpcSelection.clearAll();
 
     }
 
@@ -59,16 +63,32 @@ public class TTRPG extends JavaPlugin  {
         this.selectedNPCS = new HashMap<>();
     }
 
+    // With ProtocolLib, each player sees only their own selected NPCs glow; without it, everyone sees them glow.
+    private void initHighlighter() {
+        if(!Bukkit.getPluginManager().isPluginEnabled("ProtocolLib")) {
+            log(Level.INFO, "ProtocolLib is not installed: selected NPCs glow for every player.");
+            return;
+        }
+        try {
+            NpcSelection.setHighlighter(new PacketHighlighter(this));
+            log(Level.INFO, "Using ProtocolLib: selected NPCs only glow for the player who selected them.");
+        }
+        catch(Throwable e) {
+            // e.g. a ProtocolLib version that doesn't match the server.
+            getLogger().log(Level.WARNING, "Could not use ProtocolLib, selected NPCs will glow for every player.", e);
+        }
+    }
+
     private void initDependencies() {
         CitizensAPI.getTraitFactory().registerTrait(TraitInfo.create(StatsTrait.class));
         CitizensAPI.getTraitFactory().registerTrait(TraitInfo.create(CultureTrait.class));
         CitizensAPI.getTraitFactory().registerTrait(TraitInfo.create(FaithTrait.class));
         CitizensAPI.getTraitFactory().registerTrait(TraitInfo.create(FamilyTrait.class));
         CitizensAPI.getTraitFactory().registerTrait(TraitInfo.create(PersonalityTrait.class));
+        CitizensAPI.getTraitFactory().registerTrait(TraitInfo.create(GenderTrait.class));
     }
 
     private void registerCommands() {
-        new TestCommand().register();
         new CultureCommand().register();
         new FaithCommand().register();
         new CharCommand().register();
@@ -89,6 +109,8 @@ public class TTRPG extends JavaPlugin  {
 
         this.loadConfig("cultures", new CulturesConfig());
         this.loadConfig("faiths", new FaithsConfig());
+
+        SkinLibrary.createFolders(this.cultures.values());
     }
 
     public void loadConfig(String name, Config config) {

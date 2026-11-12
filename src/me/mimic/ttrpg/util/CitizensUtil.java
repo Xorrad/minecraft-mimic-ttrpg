@@ -1,7 +1,9 @@
 package me.mimic.ttrpg.util;
 
 import me.mimic.ttrpg.core.Culture;
+import me.mimic.ttrpg.core.Gender;
 import me.mimic.ttrpg.core.traits.CultureTrait;
+import me.mimic.ttrpg.core.traits.GenderTrait;
 import net.citizensnpcs.Citizens;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
@@ -99,34 +101,61 @@ public class CitizensUtil {
         return false;
     }
 
-    // A random spot within the radius of the center where a character of this size can stand, in view of the center
-    // (so it isn't sent through a wall) and at least a block away from the spots already taken.
-    // Falls back to the center when no such spot is found.
-    public static Location scatterLocation(Location center, double radius, Collection<Location> taken, double width, double height) {
+    // Whether a character of this size can be sent to the spot from the origin: it fits there,
+    // it is within 3 blocks of the origin's height, and the origin can see it (so it isn't sent through a wall).
+    public static boolean isReachableSpot(Location origin, Location spot, double width, double height) {
+        if(Math.abs(spot.getY() - origin.getY()) > 3 || !canStandAt(spot, width, height))
+            return false;
+
+        Location eye = origin.clone().add(0, 1, 0);
+        Vector toSpot = spot.clone().add(0, 1, 0).toVector().subtract(eye.toVector());
+        return toSpot.lengthSquared() <= 0.01
+                || origin.getWorld().rayTraceBlocks(eye, toSpot.clone().normalize(), toSpot.length(), FluidCollisionMode.NEVER, true) == null;
+    }
+
+    // A random reachable spot within the radius of the search center, facing the origin and at least
+    // a block away from the spots already taken (or closer if nothing else is free). Null if none is found.
+    private static Location findSpot(Location searchCenter, Location origin, double radius, Collection<Location> taken, double width, double height) {
         Location fallback = null;
-        Location eye = center.clone().add(0, 1, 0);
 
         for(int attempt = 0; attempt < 30; attempt++) {
             double angle = MathUtil.random.nextDouble() * 2 * Math.PI;
             double distance = radius * Math.sqrt(MathUtil.random.nextDouble());
-            Location candidate = center.clone().add(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
+            Location candidate = searchCenter.clone().add(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
             Location standing = standingLocation(candidate);
-
-            if(Math.abs(standing.getY() - center.getY()) > 3 || !canStandAt(standing, width, height))
+            if(!isReachableSpot(origin, standing, width, height))
                 continue;
 
-            Vector toSpot = standing.clone().add(0, 1, 0).toVector().subtract(eye.toVector());
-            if(toSpot.lengthSquared() > 0.01
-                    && center.getWorld().rayTraceBlocks(eye, toSpot.clone().normalize(), toSpot.length(), FluidCollisionMode.NEVER, true) != null)
-                continue;
-
-            faceTowards(standing, center);
-            if(taken.stream().noneMatch(spot -> spot.getWorld() == standing.getWorld() && spot.distanceSquared(standing) < 1.0))
+            faceTowards(standing, origin);
+            if(!isTaken(standing, taken))
                 return standing;
             if(fallback == null)
                 fallback = standing;
         }
-        return (fallback != null) ? fallback : center.clone();
+        return fallback;
+    }
+
+    private static boolean isTaken(Location spot, Collection<Location> taken) {
+        return taken.stream().anyMatch(other -> other.getWorld() == spot.getWorld() && other.distanceSquared(spot) < 1.0);
+    }
+
+    // A random spot within the radius of the center where a character of this size can stand (see findSpot).
+    // Falls back to the center when no such spot is found.
+    public static Location scatterLocation(Location center, double radius, Collection<Location> taken, double width, double height) {
+        Location spot = findSpot(center, center, radius, taken, width, height);
+        return (spot != null) ? spot : center.clone();
+    }
+
+    // The spot of a formation (line, circle...): the target itself if a character fits there and the origin can see it,
+    // otherwise a free spot close to it, otherwise somewhere around the origin. Always faces the origin.
+    public static Location formationLocation(Location target, Location origin, Collection<Location> taken, double width, double height) {
+        Location exact = standingLocation(target);
+        if(isReachableSpot(origin, exact, width, height) && !isTaken(exact, taken)) {
+            faceTowards(exact, origin);
+            return exact;
+        }
+        Location near = findSpot(target, origin, 1.5, taken, width, height);
+        return (near != null) ? near : scatterLocation(origin, 3, taken, width, height);
     }
 
     private static void faceTowards(Location location, Location target) {
@@ -137,9 +166,10 @@ public class CitizensUtil {
         location.setPitch(0);
     }
 
-    public static NPC spawnNPC(String name, Location location, Culture culture) {
+    public static NPC spawnNPC(String name, Location location, Culture culture, Gender gender) {
         NPC npc = spawnNPC(name, location);
         npc.getOrAddTrait(CultureTrait.class).setCulture(culture);
+        npc.getOrAddTrait(GenderTrait.class).setGender(gender);
         ((Citizens) CitizensAPI.getPlugin()).storeNPCs();
         return npc;
     }

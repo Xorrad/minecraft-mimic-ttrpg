@@ -4,6 +4,7 @@ import me.mimic.ttrpg.TTRPG;
 import me.mimic.ttrpg.core.Culture;
 import me.mimic.ttrpg.core.names.NameType;
 import me.mimic.ttrpg.core.names.NamesManager;
+import me.mimic.ttrpg.localization.Localization;
 
 import java.io.*;
 import java.net.URL;
@@ -49,7 +50,7 @@ public class NameyNamesManager extends NamesManager {
     @Override
     public ArrayList<String> getResume() {
         ArrayList<String> lines = new ArrayList<>();
-        lines.add("§eType: §7" + this.type.name().toLowerCase());
+        lines.add(Localization.NAMES_INFO_TYPE.format(this.type.name().toLowerCase()));
         return lines;
     }
 

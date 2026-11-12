@@ -3,6 +3,7 @@ package me.mimic.ttrpg.commands;
 import me.mimic.lib.commands.CommandGroup;
 import me.mimic.lib.commands.CommandParameter;
 import me.mimic.ttrpg.core.NpcSelection;
+import me.mimic.ttrpg.localization.Localization;
 import me.mimic.ttrpg.util.CitizensUtil;
 import me.mimic.ttrpg.util.SelectionTools;
 import net.citizensnpcs.api.CitizensAPI;
@@ -18,6 +19,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,6 +29,9 @@ public class NpcsCommand extends CommandGroup {
 
     private static final int DEFAULT_SCATTER_RADIUS = 3;
     private static final int MAX_SCATTER_RADIUS = 32;
+    private static final int DEFAULT_LINE_SPACING = 2;
+    private static final int MAX_LINE_SPACING = 10;
+    private static final double LINE_DISTANCE = 3;
 
     public NpcsCommand() {
         super("npcs");
@@ -41,13 +46,13 @@ public class NpcsCommand extends CommandGroup {
 
         newSubCommand("tphere")
                 .aliases("tp")
-                .description("Teleport the selected NPCs to you, optionally scattered around you")
+                .description("Teleport the selected NPCs to you, onto you or in a formation")
                 .playerOnly(true)
-                .param(CommandParameter.of("--scatter", CommandParameter.Type.STRING).optional())
-                .param(new CommandParameter("radius", CommandParameter.Type.INT, DEFAULT_SCATTER_RADIUS))
+                .param(CommandParameter.of("--scatter|--line|--circle", CommandParameter.Type.STRING).optional())
+                .param(CommandParameter.of("size", CommandParameter.Type.INT).optional())
                 .complete((sender, args) -> {
-                    if(args.length == 1) return List.of("--scatter");
-                    if(args.length == 2) return List.of("3", "5", "10");
+                    if(args.length == 1) return List.of("--scatter", "--line", "--circle");
+                    if(args.length == 2) return List.of("2", "3", "5", "10");
                     return Collections.emptyList();
                 })
                 .execute(NpcsCommand::tphere);
@@ -112,7 +117,7 @@ public class NpcsCommand extends CommandGroup {
         Player player = (Player) sender;
         int radius = (int) objects[0];
         if(radius < 1 || radius > SelectionTools.MAX_BRUSH_RADIUS) {
-            player.sendMessage("§cThe radius must be between 1 and " + SelectionTools.MAX_BRUSH_RADIUS + " blocks.");
+            player.sendMessage(Localization.CMD_NPCS_BRUSH_RADIUS_INVALID.format(SelectionTools.MAX_BRUSH_RADIUS));
             return;
         }
         player.getInventory().addItem(SelectionTools.createBrush(radius));
@@ -124,7 +129,7 @@ public class NpcsCommand extends CommandGroup {
 
         List<NPC> selected = NpcSelection.get(player);
         if(selected.isEmpty()) {
-            player.sendMessage("§aNo NPCs are selected.");
+            player.sendMessage(Localization.CMD_NPCS_NONE_SELECTED.format());
             return;
         }
 
@@ -140,51 +145,97 @@ public class NpcsCommand extends CommandGroup {
         }
 
         if(allFollowing)
-            player.sendMessage("§e" + String.join("§a, §e", names) + "§a are no longer following anyone.");
+            player.sendMessage(Localization.CMD_NPCS_FOLLOW_STOPPED.format(Localization.nameList(names)));
         else
-            player.sendMessage("§e" + String.join("§a, §e", names) + "§a are now following §e" + player.getName() + "§a.");
+            player.sendMessage(Localization.CMD_NPCS_FOLLOW_STARTED.format(Localization.nameList(names), player.getName()));
     }
 
     public static void tphere(CommandSender sender, Object[] objects) {
         Player player = (Player) sender;
-        String option = (String) objects[0];
-        int radius = (int) objects[1];
+        String option = (objects[0] == null) ? "" : ((String) objects[0]).toLowerCase();
+        Integer size = (Integer) objects[1];
 
-        boolean scatter = (option != null);
-        if(scatter && !option.equalsIgnoreCase("--scatter") && !option.equalsIgnoreCase("scatter")) {
-            player.sendMessage("§cInvalid syntax! Usage: /npcs tphere [--scatter] [radius]");
-            return;
-        }
-        if(scatter && (radius < 1 || radius > MAX_SCATTER_RADIUS)) {
-            player.sendMessage("§cThe radius must be between 1 and " + MAX_SCATTER_RADIUS + " blocks.");
+        Formation formation = switch(option.startsWith("--") ? option.substring(2) : option) {
+            case "" -> Formation.NONE;
+            case "scatter" -> Formation.SCATTER;
+            case "line" -> Formation.LINE;
+            case "circle" -> Formation.CIRCLE;
+            default -> null;
+        };
+        if(formation == null || (formation == Formation.NONE && size != null)) {
+            player.sendMessage(Localization.CMD_NPCS_TPHERE_USAGE.format());
             return;
         }
 
         List<NPC> selected = NpcSelection.get(player);
         if(selected.isEmpty()) {
-            player.sendMessage("§aNo NPCs are selected.");
+            player.sendMessage(Localization.CMD_NPCS_NONE_SELECTED.format());
+            return;
+        }
+
+        // The size is the radius for --scatter and --circle, and the space between NPCs for --line.
+        double amount = switch(formation) {
+            case SCATTER -> (size != null) ? size : DEFAULT_SCATTER_RADIUS;
+            case LINE -> (size != null) ? size : DEFAULT_LINE_SPACING;
+            // Big enough by default to leave about 1.5 blocks between neighbours.
+            case CIRCLE -> (size != null) ? size : Math.max(2, Math.ceil(selected.size() * 1.5 / (2 * Math.PI)));
+            case NONE -> 0;
+        };
+        int max = (formation == Formation.LINE) ? MAX_LINE_SPACING : MAX_SCATTER_RADIUS;
+        if(formation != Formation.NONE && (amount < 1 || amount > max)) {
+            player.sendMessage((formation == Formation.LINE ? Localization.CMD_NPCS_TPHERE_SPACING_INVALID : Localization.CMD_NPCS_TPHERE_RADIUS_INVALID).format(max));
             return;
         }
 
         Location center = player.getLocation();
+        // The player's horizontal facing, and the direction to their right.
+        Location flat = center.clone();
+        flat.setPitch(0);
+        Vector forward = flat.getDirection();
+        Vector right = new Vector(-forward.getZ(), 0, forward.getX());
+
         ArrayList<Location> taken = new ArrayList<>();
         ArrayList<String> npcsList = new ArrayList<>();
-        for(NPC npc : selected) {
+        for(int i = 0; i < selected.size(); i++) {
+            NPC npc = selected.get(i);
             // Use the NPC's real size (it varies with its scale), plus a small margin.
             Entity entity = npc.isSpawned() ? npc.getEntity() : null;
             double width = ((entity != null) ? entity.getWidth() : 0.6) + 0.1;
             double height = ((entity != null) ? entity.getHeight() : 1.8) + 0.1;
-            Location destination = scatter ? CitizensUtil.scatterLocation(center, radius, taken, width, height) : center;
+
+            Location destination = switch(formation) {
+                case NONE -> center;
+                case SCATTER -> CitizensUtil.scatterLocation(center, amount, taken, width, height);
+                case LINE -> {
+                    // Side by side, 3 blocks in front of the player, centered on where they look.
+                    double offset = (i - (selected.size() - 1) / 2.0) * amount;
+                    Location target = center.clone().add(forward.clone().multiply(LINE_DISTANCE)).add(right.clone().multiply(offset));
+                    yield CitizensUtil.formationLocation(target, center, taken, width, height);
+                }
+                case CIRCLE -> {
+                    // Evenly around the player, starting in front of them.
+                    double angle = 2 * Math.PI * i / selected.size();
+                    Vector direction = forward.clone().multiply(Math.cos(angle)).add(right.clone().multiply(Math.sin(angle)));
+                    Location target = center.clone().add(direction.multiply(amount));
+                    yield CitizensUtil.formationLocation(target, center, taken, width, height);
+                }
+            };
             taken.add(destination);
             npcsList.add(npc.getName());
             npc.teleport(destination, PlayerTeleportEvent.TeleportCause.COMMAND);
         }
 
-        if(scatter)
-            player.sendMessage("§e" + String.join("§a, §e", npcsList) + "§a have been scattered within §e" + radius + "§a blocks of §e" + player.getName() + "§a.");
-        else
-            player.sendMessage("§e" + String.join("§a, §e", npcsList) + "§a have been teleported to §e" + player.getName() + "§a.");
+        String names = Localization.nameList(npcsList);
+        String sizeText = (amount == Math.floor(amount)) ? String.valueOf((int) amount) : String.valueOf(amount);
+        switch(formation) {
+            case NONE -> player.sendMessage(Localization.CMD_NPCS_TPHERE_DONE.format(names, player.getName()));
+            case SCATTER -> player.sendMessage(Localization.CMD_NPCS_TPHERE_SCATTERED.format(names, player.getName(), sizeText));
+            case LINE -> player.sendMessage(Localization.CMD_NPCS_TPHERE_LINE.format(names, player.getName(), sizeText));
+            case CIRCLE -> player.sendMessage(Localization.CMD_NPCS_TPHERE_CIRCLE.format(names, player.getName(), sizeText));
+        }
     }
+
+    private enum Formation { NONE, SCATTER, LINE, CIRCLE }
 
     public static void bring(CommandSender sender, Object[] objects) {
         Player player = (Player) sender;
@@ -192,12 +243,12 @@ public class NpcsCommand extends CommandGroup {
 
         NPC npc = CitizensAPI.getNPCRegistry().getById(id);
         if(npc == null) {
-            player.sendMessage("§cNo NPC with the ID " + id + " could be found.");
+            player.sendMessage(Localization.CMD_NPCS_NOT_FOUND.format(id));
             return;
         }
 
         npc.teleport(player.getLocation(), PlayerTeleportEvent.TeleportCause.COMMAND);
-        player.sendMessage("§e" + npc.getName() + " §a(ID " + npc.getId() + ") has been teleported to §e" + player.getName() + "§a.");
+        player.sendMessage(Localization.CMD_NPCS_BROUGHT.format(npc.getName(), npc.getId(), player.getName()));
     }
 
     public static void goTo(CommandSender sender, Object[] objects) {
@@ -207,12 +258,12 @@ public class NpcsCommand extends CommandGroup {
         NPC npc = CitizensAPI.getNPCRegistry().getById(id);
         Location location = (npc == null) ? null : (npc.isSpawned() ? npc.getEntity().getLocation() : npc.getStoredLocation());
         if(location == null || location.getWorld() == null) {
-            player.sendMessage("§cNo NPC with the ID " + id + " could be found.");
+            player.sendMessage(Localization.CMD_NPCS_NOT_FOUND.format(id));
             return;
         }
 
         player.teleport(location, PlayerTeleportEvent.TeleportCause.COMMAND);
-        player.sendMessage("§aTeleported to §e" + npc.getName() + " §a(ID " + npc.getId() + ").");
+        player.sendMessage(Localization.CMD_NPCS_WENT_TO.format(npc.getName(), npc.getId()));
     }
 
     public static void list(CommandSender sender, Object[] objects) {
@@ -223,21 +274,21 @@ public class NpcsCommand extends CommandGroup {
     public static void showList(Player player) {
         List<NPC> selected = NpcSelection.get(player);
         if(selected.isEmpty()) {
-            player.sendMessage("§aNo NPCs are selected.");
+            player.sendMessage(Localization.CMD_NPCS_NONE_SELECTED.format());
             return;
         }
 
-        TextComponent header = text("§aSelected NPCs §7(" + selected.size() + ") ");
-        header.addExtra(button("§c[Clear all]", "/npcs clear", "§7Remove every NPC from the selection"));
+        TextComponent header = text(Localization.CMD_NPCS_LIST_HEADER.format(selected.size()));
+        header.addExtra(button(Localization.CMD_NPCS_LIST_CLEAR.format(), "/npcs clear", Localization.CMD_NPCS_LIST_CLEAR_HOVER.format()));
         player.spigot().sendMessage(header);
 
         for(NPC npc : selected) {
-            TextComponent line = text("§7- §e" + npc.getName() + " §7(ID " + npc.getId() + ") ");
-            line.addExtra(button("§b[TP To]", "/npcs goto " + npc.getId(), "§7Teleport to §e" + npc.getName()));
+            TextComponent line = text(Localization.CMD_NPCS_LIST_ENTRY.format(npc.getName(), npc.getId()));
+            line.addExtra(button(Localization.CMD_NPCS_LIST_TP_TO.format(), "/npcs goto " + npc.getId(), Localization.CMD_NPCS_LIST_TP_TO_HOVER.format(npc.getName())));
             line.addExtra(text(" "));
-            line.addExtra(button("§b[TP Here]", "/npcs bring " + npc.getId(), "§7Teleport §e" + npc.getName() + "§7 to you"));
+            line.addExtra(button(Localization.CMD_NPCS_LIST_TP_HERE.format(), "/npcs bring " + npc.getId(), Localization.CMD_NPCS_LIST_TP_HERE_HOVER.format(npc.getName())));
             line.addExtra(text(" "));
-            line.addExtra(button("§c[Remove]", "/npcs deselect " + npc.getId(), "§7Remove §e" + npc.getName() + "§7 from the selection"));
+            line.addExtra(button(Localization.CMD_NPCS_LIST_REMOVE.format(), "/npcs deselect " + npc.getId(), Localization.CMD_NPCS_LIST_REMOVE_HOVER.format(npc.getName())));
             player.spigot().sendMessage(line);
         }
     }
@@ -248,12 +299,12 @@ public class NpcsCommand extends CommandGroup {
 
         NPC npc = NpcSelection.get(player).stream().filter(n -> n.getId() == id).findFirst().orElse(null);
         if(npc == null) {
-            player.sendMessage("§cNo selected NPC has the ID " + id + ".");
+            player.sendMessage(Localization.CMD_NPCS_NOT_SELECTED.format(id));
             return;
         }
 
         NpcSelection.deselect(player, npc);
-        player.sendMessage("§a(§c-§a) §e" + npc.getName() + " §a(ID " + npc.getId() + ").");
+        player.sendMessage(Localization.NPC_DESELECTED.format(npc.getName(), npc.getId()));
         // Show the list again so the next NPC can be removed with one click.
         showList(player);
     }
@@ -261,7 +312,7 @@ public class NpcsCommand extends CommandGroup {
     public static void clear(CommandSender sender, Object[] objects) {
         Player player = (Player) sender;
         NpcSelection.clear(player);
-        player.sendMessage("§aNPCs are no longer being selected.");
+        player.sendMessage(Localization.CMD_NPCS_CLEARED.format());
     }
 
     private static TextComponent text(String legacyText) {
@@ -282,7 +333,7 @@ public class NpcsCommand extends CommandGroup {
         String newState = (arg.startsWith("--") ? arg.substring(2) : arg).toLowerCase();
 
         if(!newState.equals("false") && !newState.equals("true") && !newState.equals("hover")) {
-            player.sendMessage("§cInvalid syntax! Usage: /npcs names --false,--true,--hover");
+            player.sendMessage(Localization.CMD_NPCS_NAMES_USAGE.format());
             return;
         }
 
@@ -297,13 +348,13 @@ public class NpcsCommand extends CommandGroup {
 
         switch(newState) {
             case "hover":
-                player.sendMessage("§aNPCs names are only displayed on hover.");
+                player.sendMessage(Localization.CMD_NPCS_NAMES_HOVER.format());
                 break;
             case "true":
-                player.sendMessage("§aNPCs names are always displayed.");
+                player.sendMessage(Localization.CMD_NPCS_NAMES_TRUE.format());
                 break;
             case "false":
-                player.sendMessage("§aNPCs names are no longer displayed.");
+                player.sendMessage(Localization.CMD_NPCS_NAMES_FALSE.format());
                 break;
         }
     }

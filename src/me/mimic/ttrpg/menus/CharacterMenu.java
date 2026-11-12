@@ -9,6 +9,8 @@ import me.mimic.ttrpg.TTRPG;
 import me.mimic.ttrpg.core.CharacterStats;
 import me.mimic.ttrpg.core.Culture;
 import me.mimic.ttrpg.core.Faith;
+import me.mimic.ttrpg.core.Gender;
+import me.mimic.ttrpg.core.skins.SkinLibrary;
 import me.mimic.ttrpg.core.Personality;
 import me.mimic.ttrpg.localization.Localization;
 import me.mimic.ttrpg.util.CitizensUtil;
@@ -44,7 +46,7 @@ public class CharacterMenu extends Menu {
     public NPC npc;
 
 //    +----------+-----------+--------------+--------------+----------+---------+---------+---------+---------+
-//    | Name     | Culture   | Faith        |              |          |         |         |         |         |
+//    | Name     | Culture   | Faith        | Gender       |          |         |         |         |         |
 //    +----------+-----------+--------------+--------------+----------+---------+---------+---------+---------+
 //    | Strength | Dexterity | Constitution | Intelligence | Charisma |         |         |         |         |
 //    +----------+-----------+--------------+--------------+----------+---------+---------+---------+---------+
@@ -54,7 +56,7 @@ public class CharacterMenu extends Menu {
 //    +----------+-----------+--------------+--------------+----------+---------+---------+---------+---------+
 //    | #        | #         | #            | #            | #        | #       | #       | #       | #       |
 //    +----------+-----------+--------------+--------------+----------+---------+---------+---------+---------+
-//    | Mount    | Inv       | Equip        | Sit          | Follow   | Select  |         |         |         |
+//    | Mount    | Inv       | Equip        | Sit          | Follow   | Select  | Skin    |         |         |
 //    +----------+-----------+--------------+--------------+----------+---------+---------+---------+---------+
 
     public CharacterMenu(NPC npc) {
@@ -138,6 +140,21 @@ public class CharacterMenu extends Menu {
                 return ItemClickResult.NO_RESULT;
             })
         );
+
+        // Clicking switches between male and female.
+        GenderTrait genderTrait = npc.getOrAddTrait(GenderTrait.class);
+        Gender gender = genderTrait.getGender();
+        this.set(row*9 + 3, new Item()
+            .material(gender.getIcon())
+            .name(Localization.GENDER.format())
+            .lore("§f" + gender.getDisplayName(), "", Localization.GENDER_DESC.format())
+            .click((p, m) -> {
+                genderTrait.setGender(gender.other());
+                this.saveNPC();
+                this.updateInfo();
+                return ItemClickResult.NO_RESULT;
+            })
+        );
     }
 
     // Update character stats items such as:
@@ -193,7 +210,7 @@ public class CharacterMenu extends Menu {
                 .name("§e" + personality.getName())
                 .lore("§f" + personality.getDescription(),
                         "",
-                        "§7Right-click to §cremove§7 this personality trait.")
+                        Localization.PERSONALITY_REMOVE.format())
                 .hideAttributes()
                 .leftClick((p, m) -> {
                     return ItemClickResult.NO_RESULT;
@@ -210,7 +227,7 @@ public class CharacterMenu extends Menu {
 
         this.set(row*9 + i, new Item()
                 .material(Material.BARRIER)
-                .name("§cAdd trait")
+                .name(Localization.PERSONALITY_ADD.format())
                 .leftClick((p, m) -> {
                     openPersonalityTrait(p);
                     this.saveNPC();
@@ -272,7 +289,7 @@ public class CharacterMenu extends Menu {
                 .lore(Localization.MOUNT_DESC.format())
                 .leftClick((p, m) -> {
                     if (!npc.isSpawned()) {
-                        p.sendMessage("§cFailed to mount character because it is not spawned.");
+                        p.sendMessage(Localization.MOUNT_FAILED.format());
                         return ItemClickResult.NO_RESULT;
                     }
                     Controllable trait = (Controllable) npc.getOrAddTrait(Controllable.class);
@@ -288,7 +305,7 @@ public class CharacterMenu extends Menu {
                 .lore(Localization.INVENTORY_DESC.format())
                 .leftClick((p, m) -> {
                     if (!npc.hasTrait(Inventory.class)) {
-                        p.sendMessage("§cFailed to open the inventory for this character.");
+                        p.sendMessage(Localization.INVENTORY_FAILED.format());
                         return ItemClickResult.NO_RESULT;
                     }
                     Inventory trait = (Inventory) npc.getTraitNullable(Inventory.class);
@@ -304,7 +321,7 @@ public class CharacterMenu extends Menu {
                 .lore(Localization.EQUIP_DESC.format())
                 .leftClick((p, m) -> {
                     if (!npc.isSpawned()) {
-                        p.sendMessage("§cFailed to edit character because it is not spawned.");
+                        p.sendMessage(Localization.EQUIP_FAILED.format());
                         return ItemClickResult.NO_RESULT;
                     }
                     this.setClosed(true);
@@ -319,7 +336,7 @@ public class CharacterMenu extends Menu {
                 .lore(Localization.SIT_DESC.format())
                 .leftClick((p, m) -> {
                     if (!npc.isSpawned()) {
-                        p.sendMessage("§cFailed to sit character because it is not spawned.");
+                        p.sendMessage(Localization.SIT_FAILED.format());
                         return ItemClickResult.NO_RESULT;
                     }
                     SitTrait trait = (SitTrait)npc.getOrAddTrait(SitTrait.class);
@@ -351,7 +368,7 @@ public class CharacterMenu extends Menu {
                 .lore(Localization.FOLLOW_DESC.format())
                 .leftClick((p, m) -> {
                     if (!npc.isSpawned()) {
-                        p.sendMessage("§cFailed to edit character because it is not spawned.");
+                        p.sendMessage(Localization.FOLLOW_FAILED.format());
                         return ItemClickResult.NO_RESULT;
                     }
 
@@ -374,6 +391,35 @@ public class CharacterMenu extends Menu {
                     return ItemClickResult.NO_RESULT;
                 })
         );
+
+        boolean hasSkin = SkinLibrary.hasSkin(npc);
+        this.set(row*9 + 6, new Item()
+                .material(Material.PAINTING)
+                .name(Localization.SKIN.format())
+                .lore(hasSkin ? Localization.SKIN_DESC_REMOVE.format() : Localization.SKIN_DESC_PICK.format())
+                .leftClick((p, m) -> {
+                    this.pickRandomSkin(p);
+                    return ItemClickResult.NO_RESULT;
+                })
+                .rightClick((p, m) -> {
+                    if(SkinLibrary.hasSkin(npc)) {
+                        SkinLibrary.removeSkin(npc);
+                        p.sendMessage(Localization.SKIN_REMOVED.format(npc.getName()));
+                        this.updateInfo();
+                        this.updateActions();
+                    }
+                    return ItemClickResult.NO_RESULT;
+                })
+        );
+    }
+
+    // Gives the NPC a skin for its culture and gender, if it has none yet.
+    private void pickRandomSkin(Player player) {
+        // The head in the menu shows the skin, so refresh it with the button once the skin is applied.
+        SkinLibrary.pickSkinFor(npc, player, false, () -> {
+            this.updateInfo();
+            this.updateActions();
+        });
     }
 
     // Add glass pane borders between specific rows.
@@ -507,7 +553,7 @@ public class CharacterMenu extends Menu {
 
                 event.setCancelled(true);
                 if(target.equals(npc)) {
-                    player.sendMessage("§cA character cannot be its own relative.");
+                    player.sendMessage(Localization.FAMILY_SELF.format());
                     return;
                 }
                 cancelFamilySelection(player);

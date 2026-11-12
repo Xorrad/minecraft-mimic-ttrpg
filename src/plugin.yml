@@ -4,8 +4,8 @@ author: Mimic
 version: '1.2.1'
 api-version: '26.3'
 depend: [Citizens]
+softdepend: [ProtocolLib]
 commands:
-  test:
   culture:
   faith:
   char:

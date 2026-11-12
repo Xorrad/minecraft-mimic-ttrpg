@@ -1,38 +1,37 @@
 package me.mimic.ttrpg.core;
 
+import me.mimic.ttrpg.localization.Localization;
 import org.bukkit.Material;
 
+// Each personality's name and description come from the messages file,
+// under its own name (e.g. LOYAL) and its name followed by _DESC (e.g. LOYAL_DESC).
 public enum Personality {
 
-    LOYAL("Loyal", "This character stays loyal to his cause.", Material.APPLE),
-    DISLOYAL("Disloyal", "This character likes to flip side when thing go awry.", Material.POISONOUS_POTATO),
+    LOYAL(Material.APPLE),
+    DISLOYAL(Material.POISONOUS_POTATO),
 
-    GREEDY("Greedy", "This character likes piling up gold.", Material.GOLD_NUGGET),
-    GENEROUS("Generous", "This character enjoy spending money for others.", Material.FLOWER_POT),
+    GREEDY(Material.GOLD_NUGGET),
+    GENEROUS(Material.FLOWER_POT),
 
-    DILIGENT("Diligent", "This character thrives for hard work.", Material.IRON_PICKAXE),
-    LAZY("Lazy", "This character tries his best to avoid any tiresome business.", Material.BROWN_BED),
+    DILIGENT(Material.IRON_PICKAXE),
+    LAZY(Material.BROWN_BED),
 
-    CHASTE("Chaste", "This character dislikes intimate contact, avoiding the temptations of the flesh.", Material.WHITE_CANDLE),
-    LUSTFUL("Lustful", "Carnal desires burn hot in this character's core.", Material.REDSTONE),
+    CHASTE(Material.WHITE_CANDLE),
+    LUSTFUL(Material.REDSTONE),
     ;
 
-    private String name;
-    private String description;
-    private Material icon;
+    private final Material icon;
 
-    Personality(String name, String description, Material icon) {
-        this.name = name;
-        this.description = description;
+    Personality(Material icon) {
         this.icon = icon;
     }
 
     public String getName() {
-        return name;
+        return Localization.valueOf(this.name()).format();
     }
 
     public String getDescription() {
-        return description;
+        return Localization.valueOf(this.name() + "_DESC").format();
     }
 
     public Material getIcon() {

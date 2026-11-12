@@ -79,7 +79,7 @@ public class FaithCommand extends CommandGroup {
         sender.sendMessage(Localization.CMD_FAITH_LIST.format());
 
         for(Faith faith : TTRPG.getInstance().faiths.values()) {
-            sender.sendMessage("§e- §7§n" + faith.getId() + " \"" + faith.getName() + "\"");
+            sender.sendMessage(Localization.CMD_FAITH_LIST_ENTRY.format(faith.getId(), faith.getName()));
         }
 
         sender.sendMessage(Localization.SEPARATOR.format());

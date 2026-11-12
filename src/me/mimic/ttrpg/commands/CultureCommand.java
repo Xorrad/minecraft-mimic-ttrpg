@@ -141,7 +141,6 @@ public class CultureCommand extends CommandGroup {
         }
 
         ListNamesManager nameManager = new ListNamesManager(cultureId);
-        nameManager.setFilePath("names/" + cultureId.toLowerCase());
         Culture culture = new Culture(cultureId, cultureName, nameManager);
         culture.save();
         TTRPG.getInstance().cultures.put(cultureId, culture);
@@ -236,7 +235,7 @@ public class CultureCommand extends CommandGroup {
         {
             for(Culture culture : TTRPG.getInstance().cultures.values())
             {
-                TextComponent message = new TextComponent("§e- §7§n" + culture.getId() + "§r§7 \"" + culture.getName() + "\"");
+                TextComponent message = new TextComponent(TextComponent.fromLegacyText(Localization.CMD_CULTURE_LIST_ENTRY.format(culture.getId(), culture.getName())));
                 message.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/culture info " + culture.getId()));
                 message.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(Localization.CMD_CULTURE_SHOW.format(culture.getId())).create()));
                 ((Player) sender).spigot().sendMessage(message);
@@ -245,7 +244,7 @@ public class CultureCommand extends CommandGroup {
         else
         {
             for(Culture culture : TTRPG.getInstance().cultures.values())
-                sender.sendMessage("§e- §7§n" + culture.getId() + " \"" + culture.getName() + "\"");
+                sender.sendMessage(Localization.CMD_CULTURE_LIST_ENTRY.format(culture.getId(), culture.getName()));
         }
 
         sender.sendMessage(Localization.SEPARATOR.format());
@@ -264,6 +263,8 @@ public class CultureCommand extends CommandGroup {
         sender.sendMessage(Localization.SEPARATOR.format());
         sender.sendMessage(Localization.CMD_CULTURE_INFO.format(culture.getId()));
         sender.sendMessage(Localization.CMD_CULTURE_INFO_NAME.format(culture.getName()));
+        sender.sendMessage(Localization.CMD_CULTURE_INFO_SKIN.format(String.join(", ", culture.getSkinFolders().stream()
+                .map(folder -> "skins/cultures/" + folder).toList())));
         sender.sendMessage(Localization.CMD_CULTURE_INFO_NAMEMANAGER.format());
         for(String s : culture.getNameManager().getResume())
             sender.sendMessage("   " + s);
@@ -328,7 +329,7 @@ public class CultureCommand extends CommandGroup {
                 if(type != NameType.FAMILY)
                     generatedName += " " + culture.getNameManager().get(NameType.FAMILY);
 
-                lines.add("  §e" + (i+1) + ". §7\"" + generatedName + "\"");
+                lines.add(Localization.CMD_CULTURE_GENERATED_NAME.format(i + 1, generatedName));
             }
             Bukkit.getScheduler().runTask(TTRPG.getInstance(), () -> lines.forEach(sender::sendMessage));
         });

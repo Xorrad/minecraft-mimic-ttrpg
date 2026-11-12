@@ -1,11 +1,10 @@
 package me.mimic.ttrpg.core;
 
 import me.mimic.ttrpg.TTRPG;
+import me.mimic.ttrpg.core.highlight.NpcHighlighter;
+import me.mimic.ttrpg.core.highlight.PotionHighlighter;
 import net.citizensnpcs.api.npc.NPC;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -13,10 +12,17 @@ import java.util.List;
 import java.util.Map;
 
 // The NPCs each player has selected with the wand or the brush.
-// Selected NPCs glow, as long as at least one player has them selected.
+// The highlighter shows each player their selection: only to them with ProtocolLib,
+// or to everyone with a Glowing effect without it.
 public final class NpcSelection {
 
+    private static NpcHighlighter highlighter = new PotionHighlighter();
+
     private NpcSelection() {}
+
+    public static void setHighlighter(NpcHighlighter highlighter) {
+        NpcSelection.highlighter = highlighter;
+    }
 
     private static Map<Player, ArrayList<NPC>> selections() {
         return TTRPG.getInstance().selectedNPCS;
@@ -42,7 +48,7 @@ public final class NpcSelection {
         if(selected.contains(npc))
             return false;
         selected.add(npc);
-        highlight(npc);
+        highlighter.selected(player, npc);
         return true;
     }
 
@@ -53,8 +59,7 @@ public final class NpcSelection {
             return false;
         if(selected.isEmpty())
             selections().remove(player);
-        if(!isSelectedByAnyone(npc))
-            unhighlight(npc);
+        highlighter.deselected(player, npc);
         return true;
     }
 
@@ -62,15 +67,15 @@ public final class NpcSelection {
         ArrayList<NPC> selected = selections().remove(player);
         if(selected == null)
             return;
-        for(NPC npc : selected) {
-            if(!isSelectedByAnyone(npc))
-                unhighlight(npc);
-        }
+        for(NPC npc : selected)
+            highlighter.deselected(player, npc);
     }
 
+    // Clears every selection and removes every highlight, when the plugin shuts down.
     public static void clearAll() {
         for(Player player : new ArrayList<>(selections().keySet()))
             clear(player);
+        highlighter.shutdown();
     }
 
     // Drops an NPC from every selection, e.g. when it is deleted.
@@ -79,10 +84,9 @@ public final class NpcSelection {
             deselect(player, npc);
     }
 
-    // Puts the glow back on an NPC that was respawned while selected.
+    // Puts the highlight back on an NPC that was respawned while selected.
     public static void refresh(NPC npc) {
-        if(isSelectedByAnyone(npc))
-            highlight(npc);
+        highlighter.respawned(npc);
     }
 
     public static int selectAll(Player player, Collection<NPC> npcs) {
@@ -101,15 +105,5 @@ public final class NpcSelection {
                 count++;
         }
         return count;
-    }
-
-    private static void highlight(NPC npc) {
-        if(npc.isSpawned() && npc.getEntity() instanceof LivingEntity entity)
-            entity.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, PotionEffect.INFINITE_DURATION, 0, false, false, false));
-    }
-
-    private static void unhighlight(NPC npc) {
-        if(npc.isSpawned() && npc.getEntity() instanceof LivingEntity entity)
-            entity.removePotionEffect(PotionEffectType.GLOWING);
     }
 }

@@ -4,6 +4,7 @@ import me.mimic.ttrpg.TTRPG;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.InputStream;
+import java.util.Collection;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import org.bukkit.ChatColor;
@@ -33,6 +34,7 @@ public enum Localization {
     CMD_CULTURE_SHOW,
     CMD_CULTURE_INFO,
     CMD_CULTURE_INFO_NAME,
+    CMD_CULTURE_INFO_SKIN,
     CMD_CULTURE_INFO_NAMEMANAGER,
     CMD_CULTURE_NAMETYPE_INVALID,
     CMD_CULTURE_NAMEMANAGER_INVALID,
@@ -104,6 +106,84 @@ public enum Localization {
     LUSTFUL,
     LUSTFUL_DESC,
 
+    PERSONALITY_REMOVE,
+    PERSONALITY_ADD,
+
+    MOUNT_FAILED,
+    INVENTORY_FAILED,
+    EQUIP_FAILED,
+    SIT_FAILED,
+    FOLLOW_FAILED,
+    FAMILY_SELF,
+
+    GENDER,
+    GENDER_DESC,
+    GENDER_MALE,
+    GENDER_FEMALE,
+
+    SKIN,
+    SKIN_DESC_PICK,
+    SKIN_DESC_REMOVE,
+    SKIN_UPLOADING,
+    SKIN_APPLIED,
+    SKIN_ALREADY,
+    SKIN_NONE_AVAILABLE,
+    SKIN_BUSY,
+    SKIN_FAILED,
+    SKIN_REMOVED,
+
+    CMD_CHAR_GENDER_INVALID,
+    CMD_CHAR_CREATED,
+    CMD_CULTURE_LIST_ENTRY,
+    CMD_CULTURE_GENERATED_NAME,
+    CMD_FAITH_LIST_ENTRY,
+
+    NAMES_INFO_TYPE,
+    NAMES_INFO_DIRECTORY,
+    NAMES_INFO_LIST,
+    NAMES_INFO_TEMPLATE,
+
+    NPC_NAMES_SEPARATOR,
+    NPC_SELECTED,
+    NPC_DESELECTED,
+    CMD_NPCS_NONE_SELECTED,
+    CMD_NPCS_NOT_FOUND,
+    CMD_NPCS_NOT_SELECTED,
+    CMD_NPCS_CLEARED,
+    CMD_NPCS_FOLLOW_STARTED,
+    CMD_NPCS_FOLLOW_STOPPED,
+    CMD_NPCS_TPHERE_USAGE,
+    CMD_NPCS_TPHERE_RADIUS_INVALID,
+    CMD_NPCS_TPHERE_SPACING_INVALID,
+    CMD_NPCS_TPHERE_DONE,
+    CMD_NPCS_TPHERE_SCATTERED,
+    CMD_NPCS_TPHERE_LINE,
+    CMD_NPCS_TPHERE_CIRCLE,
+    CMD_NPCS_BROUGHT,
+    CMD_NPCS_WENT_TO,
+    CMD_NPCS_LIST_HEADER,
+    CMD_NPCS_LIST_ENTRY,
+    CMD_NPCS_LIST_CLEAR,
+    CMD_NPCS_LIST_CLEAR_HOVER,
+    CMD_NPCS_LIST_TP_TO,
+    CMD_NPCS_LIST_TP_TO_HOVER,
+    CMD_NPCS_LIST_TP_HERE,
+    CMD_NPCS_LIST_TP_HERE_HOVER,
+    CMD_NPCS_LIST_REMOVE,
+    CMD_NPCS_LIST_REMOVE_HOVER,
+    CMD_NPCS_NAMES_USAGE,
+    CMD_NPCS_NAMES_HOVER,
+    CMD_NPCS_NAMES_TRUE,
+    CMD_NPCS_NAMES_FALSE,
+    CMD_NPCS_BRUSH_RADIUS_INVALID,
+
+    WAND_NAME,
+    BRUSH_NAME,
+    BRUSH_LORE,
+    BRUSH_NO_TARGET,
+    BRUSH_SELECTED,
+    BRUSH_DESELECTED,
+
     ;
 
     private String format;
@@ -112,6 +192,11 @@ public enum Localization {
         if(this.format == null)
             return this.name();
         return String.format(ChatColor.translateAlternateColorCodes('&', this.format), args);
+    }
+
+    // Joins NPC names for a message, e.g. "Anna, Bob, Carl", with NPC_NAMES_SEPARATOR between them.
+    public static String nameList(Collection<String> names) {
+        return String.join(NPC_NAMES_SEPARATOR.format(), names);
     }
 
     public String getFormat() {

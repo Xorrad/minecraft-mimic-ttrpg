@@ -6,6 +6,7 @@ import me.mimic.ttrpg.core.Culture;
 import me.mimic.ttrpg.core.names.IListNamesManager;
 import me.mimic.ttrpg.core.names.NameType;
 import me.mimic.ttrpg.core.names.NamesManager;
+import me.mimic.ttrpg.localization.Localization;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -50,13 +51,13 @@ public class ListNamesManager extends NamesManager implements IListNamesManager 
     public ArrayList<String> getResume() {
         ArrayList<String> lines = new ArrayList<>();
 
-        lines.add("§eType: §7" + this.type.name().toLowerCase());
-        lines.add("§eDirectory: §7\"" + this.filePath + "\"");
+        lines.add(Localization.NAMES_INFO_TYPE.format(this.type.name().toLowerCase()));
+        lines.add(Localization.NAMES_INFO_DIRECTORY.format(this.filePath));
 
         for(NameType type : NameType.values()) {
             int n = this.names.get(type).size();
             List<String> values = this.names.get(type).subList(0, Math.min(5, n));
-            lines.add("§e" + type.name() + " (" + this.names.get(type).size() + "): §7" + String.join(",", values) + (n > 5 ? "..." : ""));
+            lines.add(Localization.NAMES_INFO_LIST.format(type.name(), n, String.join(",", values) + (n > 5 ? "..." : "")));
         }
 
         return lines;
@@ -66,7 +67,13 @@ public class ListNamesManager extends NamesManager implements IListNamesManager 
     public void loadConfig(String configPath) {
         CulturesConfig config = (CulturesConfig) TTRPG.getInstance().getConfig("cultures");
 
-        this.filePath = config.getString(configPath + ".name-manager.file-path");
+        // A culture that has no folder yet (a new one, or one switching to lists) gets the default one,
+        // so its names aren't loaded from a folder called "null".
+        this.filePath = config.getString(configPath + ".name-manager.file-path", defaultFilePath(configPath));
+    }
+
+    private static String defaultFilePath(String cultureId) {
+        return "names/" + cultureId.toLowerCase();
     }
 
     @Override
@@ -106,7 +113,7 @@ public class ListNamesManager extends NamesManager implements IListNamesManager 
 
     @Override
     public void setDefaultConfig(Culture culture) {
-        this.filePath = "names/" + culture.getId().toLowerCase();
+        this.filePath = defaultFilePath(culture.getId());
     }
 
     @Override
@@ -139,7 +146,7 @@ public class ListNamesManager extends NamesManager implements IListNamesManager 
             catch (FileNotFoundException e) {
                 TTRPG.log(Level.INFO, "Could not find file (%s) for %s.", this.filePath, nameType.name());
                 try {
-                    file.mkdirs();
+                    file.getParentFile().mkdirs();
                     file.createNewFile();
                 }
                 catch (IOException ex) {

@@ -1,0 +1,24 @@
+# How new NPCs' skins are put together from skin parts. See README.txt in this folder.
+#
+# The layers of a skin, drawn from the first (bottom) to the last (top). Each layer gets one random part.
+#   required: true   an NPC must get a part for this layer, otherwise no skin is put together
+#                    (the NPC then gets a whole skin from male/ or female/ instead, if there are any).
+#   chance: 0.4      for an optional layer, the chance (from 0 to 1) that the NPC gets a part for it,
+#                    e.g. only 40% of NPCs wear a cloak. Defaults to 1 (always, if the layer has parts).
+# You can rename, add, remove or reorder layers: each one is a folder in parts/ and in cultures/<culture>/.
+#
+# These layers match the parts made by tools/SkinPartsGenerator.java, which cuts whole skins into:
+#   body     the person: face, hair and beard, and a whole body in their skin colour
+#   clothes  the whole outfit, helmets and hats included, with bare skin left transparent
+#            so the body shows through
+layers:
+  body:
+    required: true
+  clothes:
+    required: true
+
+# The arm model of put-together skins for each gender: slim (3-pixel-wide arms) or classic (4 pixels).
+# Every part used for a gender must be drawn for that gender's model.
+slim:
+  male: false
+  female: true

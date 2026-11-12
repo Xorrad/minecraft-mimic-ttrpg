@@ -49,6 +49,33 @@ public class FamilyTrait extends Trait {
             FamilyTrait relativeFamily = newRelative.getOrAddTrait(FamilyTrait.class);
             relativeFamily.addChild(this.getNPC());
         }
+
+        if(role == Role.PARTNER)
+            this.linkPartners(formerRelative, newRelative);
+    }
+
+    // Partners are mutual: the former partner is left without one, and the new partner
+    // leaves their own former partner to be with this NPC.
+    private void linkPartners(NPC formerPartner, NPC newPartner) {
+        NPC self = this.getNPC();
+
+        if(formerPartner != null && !formerPartner.equals(newPartner))
+            formerPartner.getOrAddTrait(FamilyTrait.class).unlinkPartner(self);
+
+        if(newPartner == null)
+            return;
+
+        FamilyTrait newPartnerFamily = newPartner.getOrAddTrait(FamilyTrait.class);
+        NPC theirFormerPartner = newPartnerFamily.getRelative(Role.PARTNER);
+        if(theirFormerPartner != null && !theirFormerPartner.equals(self))
+            theirFormerPartner.getOrAddTrait(FamilyTrait.class).unlinkPartner(newPartner);
+        newPartnerFamily.relatives.put(Role.PARTNER, self.getId());
+    }
+
+    // Removes the partner link only if it still points at that NPC.
+    private void unlinkPartner(NPC partner) {
+        if(this.getRelativeId(Role.PARTNER) == partner.getId())
+            this.relatives.put(Role.PARTNER, -1);
     }
 
     public List<NPC> getChildren() {
