@@ -36,7 +36,7 @@ CMD_FAITH_EXISTS: '&eThe faith &7%s&e already exists.'
 CMD_FAITH_DOESNT_EXIST: '&eThe faith &7%s&e does not exist.'
 CMD_FAITH_LIST: '&eFaiths:'
 
-NAME: '&eNom'
+NAME: '&eName'
 CULTURE: '&eCulture'
 FAITH: '&eFaith'
 ERROR: '&cAn error occurred, contact an administrator for further details.'

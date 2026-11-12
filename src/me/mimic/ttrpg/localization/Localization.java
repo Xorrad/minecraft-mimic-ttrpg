@@ -1,8 +1,11 @@
 package me.mimic.ttrpg.localization;
 
-import me.mimic.lib.configs.Config;
-import me.mimic.ttrpg.configs.LocalizationConfig;
+import me.mimic.ttrpg.TTRPG;
 import org.bukkit.configuration.file.YamlConfiguration;
+
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import org.bukkit.ChatColor;
 
 public enum Localization {
@@ -115,18 +118,16 @@ public enum Localization {
         this.format = format;
     }
 
-    static Config activeConfig;
+    // The English messages bundled in the plugin jar.
+    private static final String MESSAGES_PATH = "lang/en_US.yml";
 
-    public static Config getActiveConfig() {
-        return activeConfig;
-    }
-
-    public static void setActiveConfig(Config activeConfig) {
-        Localization.activeConfig = activeConfig;
-        // Messages missing from the active language fall back to English.
-        YamlConfiguration fallback = LocalizationConfig.loadBundled(Language.en_US);
+    public static void load() {
+        InputStream stream = TTRPG.getInstance().getResource(MESSAGES_PATH);
+        YamlConfiguration messages = (stream == null)
+                ? new YamlConfiguration()
+                : YamlConfiguration.loadConfiguration(new InputStreamReader(stream, StandardCharsets.UTF_8));
         for(Localization msg : values()) {
-            msg.setFormat(activeConfig.getString(msg.name(), fallback.getString(msg.name())));
+            msg.setFormat(messages.getString(msg.name()));
         }
     }
 

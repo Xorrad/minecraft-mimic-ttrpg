@@ -10,7 +10,6 @@ import me.mimic.ttrpg.core.Faith;
 import me.mimic.ttrpg.core.NpcSelection;
 import me.mimic.ttrpg.events.NpcsEvents;
 import me.mimic.ttrpg.events.PlayerEvents;
-import me.mimic.ttrpg.localization.Language;
 import me.mimic.ttrpg.localization.Localization;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
@@ -32,12 +31,9 @@ public class TTRPG extends JavaPlugin  {
     public HashMap<String, Faith> faiths;
     public HashMap<Player, ArrayList<NPC>> selectedNPCS;
 
-    public Language language;
-
     @Override
     public void onLoad() {
         instance = this;
-        this.language = Language.en_US;
     }
 
     @Override
@@ -88,10 +84,7 @@ public class TTRPG extends JavaPlugin  {
     private void initConfigurations() {
         this.configs = new HashMap<String, Config>();
 
-        this.loadConfig("config", new PluginConfig());
-
-        this.loadConfig("localization", new LocalizationConfig());
-        Localization.setActiveConfig(this.getConfig("localization"));
+        Localization.load();
 
         this.loadConfig("cultures", new CulturesConfig());
         this.loadConfig("faiths", new FaithsConfig());
@@ -104,12 +97,6 @@ public class TTRPG extends JavaPlugin  {
 
     public Config getConfig(String name) {
         return this.configs.get(name);
-    }
-
-    public void setLanguage(Language language) {
-        this.language = language;
-        if(this.configs.containsKey("localization"))
-            ((LocalizationConfig) this.configs.get("localization")).setActiveLanguage(this.language);
     }
 
     // Copies a file bundled in the plugin jar to the data folder.

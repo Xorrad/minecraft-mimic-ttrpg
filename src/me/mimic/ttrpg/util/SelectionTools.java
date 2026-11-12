@@ -12,7 +12,7 @@ import java.util.List;
 // The items used to select NPCs: the wand (one NPC at a time) and the brush (every NPC in a radius).
 public final class SelectionTools {
 
-    public static final String WAND_NAME = "§eBaguette de selection";
+    public static final String WAND_NAME = "§eSelection wand";
     public static final int DEFAULT_BRUSH_RADIUS = 5;
     public static final int MAX_BRUSH_RADIUS = 32;
     public static final int BRUSH_RANGE = 64;
