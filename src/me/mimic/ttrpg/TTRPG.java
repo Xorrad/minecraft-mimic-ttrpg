@@ -73,6 +73,7 @@ public class TTRPG extends JavaPlugin  {
         new FaithCommand().register();
         new CharCommand().register();
         new NpcsCommand().register();
+        new RollCommand().register();
     }
 
     private void registerEvents() {

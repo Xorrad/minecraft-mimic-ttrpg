@@ -36,6 +36,10 @@ CMD_FAITH_EXISTS: '&eThe faith &7%s&e already exists.'
 CMD_FAITH_DOESNT_EXIST: '&eThe faith &7%s&e does not exist.'
 CMD_FAITH_LIST: '&eFaiths:'
 
+CMD_ROLL_RESULT: '&e%1$s &7rolled &f%2$s&7: %3$s &7= &a&l%4$d'
+CMD_ROLL_INVALID: '&cInvalid dice &f%s&c. Example: &f/roll 4d16+3-2-1+8'
+CMD_ROLL_TOO_LARGE: '&cToo many dice: at most &f%1$d&c dice with up to &f%2$d&c sides.'
+
 NAME: '&eName'
 CULTURE: '&eCulture'
 FAITH: '&eFaith'

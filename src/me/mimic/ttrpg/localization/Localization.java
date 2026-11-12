@@ -47,6 +47,10 @@ public enum Localization {
     CMD_FAITH_DOESNT_EXIST,
     CMD_FAITH_LIST,
 
+    CMD_ROLL_RESULT,
+    CMD_ROLL_INVALID,
+    CMD_ROLL_TOO_LARGE,
+
     NAME,
     CULTURE,
     FAITH,

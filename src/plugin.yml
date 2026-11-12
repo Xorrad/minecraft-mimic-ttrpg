@@ -10,3 +10,5 @@ commands:
   faith:
   char:
   npcs:
+  roll:
+    description: Roll dice, e.g. /roll 4d16+3-2-1+8
